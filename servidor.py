@@ -662,7 +662,7 @@ UNIVERSAL_POLICY = {
 
 @app.post("/consejo")
 def consejo(body: ConsejoBody):
-    ensure_loaded()
+    
 
     # --- DEBUG opcional ---
     # print("\n===== DEBUG /consejo =====")
@@ -684,6 +684,8 @@ def consejo(body: ConsejoBody):
             "fuentes": []
         })
     
+    ensure_loaded()
+
     # --- 0) Si no hay código, responder localizado (tu lógica actual) ---
     if is_blank(body.codigo):
         msgs = {
