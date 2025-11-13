@@ -67,10 +67,12 @@ origins = CORS or [FRONT]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://(.+\.vercel\.app)$",
+    allow_origins=origins,
+    allow_origin_regex=r"https://.*\.trycloudflare\.com",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    
 )
 
 # -------------------------
@@ -658,7 +660,16 @@ UNIVERSAL_POLICY = {
     ),
    
 }
-    
+@app.post("/flush_cache")
+def flush_cache():
+    """
+    Limpia la caché LRU en memoria.
+    Útil para depurar respuestas viejas.
+    """
+    global _cache
+    cleared = len(_cache)
+    _cache.clear()
+    return {"ok": True, "cleared": cleared, "items": len(_cache)}
 
 @app.post("/consejo")
 def consejo(body: ConsejoBody):
@@ -690,15 +701,15 @@ def consejo(body: ConsejoBody):
     if is_blank(body.codigo):
         msgs = {
             "es": (
-                "Necesito que pegues tu intento de código para poder ayudarte.\n"
+                "Necesito que escribas tu intento de código para poder ayudarte.\n"
                 f"{('Revisá las slides de ' + body.clase + ' y volvé a intentar.') if body.clase else 'Revisá las slides de la clase correspondiente y volvé a intentar.'}"
             ),
             "en": (
-                "I need you to paste your code attempt so I can help.\n"
+                "I need you to write your code attempt so I can help.\n"
                 f"{('Review the slides of ' + body.clase + ' and try again.') if body.clase else 'Review the slides for the corresponding class and try again.'}"
             ),
             "pt": (
-                "Preciso que você cole sua tentativa de código para poder ajudar.\n"
+                "Preciso que você escreva sua tentativa de código para poder ajudar.\n"
                 f"{('Revise os slides de ' + body.clase + ' e tente novamente.') if body.clase else 'Revise os slides da aula correspondente e tente novamente.'}"
             ),
         }
@@ -790,7 +801,7 @@ def consejo(body: ConsejoBody):
         "```\n"
     )
 
-    print(INSTRUCTIONS.get(lang, INSTRUCTIONS["es"]))
+    # print(INSTRUCTIONS.get(lang, INSTRUCTIONS["es"]))
 
     SYSTEM_MSGS = {
         "es": "Actúas como asistente del curso. Responde SOLO con el 'Contexto'. Si la pregunta excede el material, di: 'Aún no lo vimos en clase'. Usa el mismo tono que las diapositivas. Responde SOLO en español.",
@@ -837,8 +848,11 @@ def consejo(body: ConsejoBody):
                 answer = answer.replace("The student's code", "Your code").replace("the student's code", "your code")
             elif lang == "pt":
                 answer = answer.replace("O código do estudante", "Seu código").replace("o código do estudante", "seu código")
-            low = answer.lower().strip()
-            modelo_dijo_ok = low.startswith("✅") or any(p in low for p in ok_textos)
+            # 👇 NUEVA LÓGICA
+            texto_plano = answer.strip()
+            # Solo confiar si la respuesta arranca con el ✅
+            modelo_dijo_ok = texto_plano.startswith("✅")
+
             # (1) Nunca forzar ✅ en HISTORIA si el precheck NO pasó
             if is_hist and not precheck_hist_ok:
                 modelo_dijo_ok = False

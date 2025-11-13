@@ -6,4 +6,5 @@ faiss-cpu
 fastapi
 uvicorn[standard]
 groq
+numpy
 
